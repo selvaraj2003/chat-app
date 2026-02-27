@@ -37,13 +37,8 @@ class ChatHistory(Base):
     model_name = Column(
         String(50),
         nullable=False,
-        default="llama3",
+        default="llama3.1:latest",
         doc="Ollama model name"
-    )
-    temperature = Column(
-        Float,
-        nullable=True,
-        default=0.7
     )
 
     tokens_used = Column(

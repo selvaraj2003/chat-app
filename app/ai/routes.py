@@ -9,15 +9,11 @@ from app.auth.deps import get_current_user
 from app.models.user import User
 from app.models.chat import ChatHistory
 from app.ai.schemas import ChatRequest, ChatResponse
+from app.core.config import settings
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
-
-OLLAMA_URL = "http://localhost:11434/api/generate"
-DEFAULT_MODEL = "llama3"
-
-
-@router.post("/chat", response_model=ChatResponse)
+@router.post("/generate", response_model=ChatResponse)
 def chat_with_ai(
     payload: ChatRequest,
     db: Session = Depends(get_db),
@@ -35,14 +31,11 @@ def chat_with_ai(
         # Call Ollama
         # ==========================
         response = requests.post(
-            OLLAMA_URL,
+            settings["OLLAMA_BASE_URL"],
             json={
-                "model": payload.model or DEFAULT_MODEL,
+                "model": payload.model or settings["DEFAULT_MODEL"],
                 "prompt": payload.prompt,
                 "stream": False,
-                "options": {
-                    "temperature": payload.temperature or 0.7
-                }
             },
             timeout=120
         )
