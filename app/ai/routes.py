@@ -11,7 +11,7 @@ from app.models.chat import ChatHistory
 from app.ai.schemas import ChatRequest, ChatResponse
 from app.core.config import settings
 
-router = APIRouter(prefix="/ai", tags=["AI"])
+router = APIRouter(prefix="/api/ai", tags=["AI"])
 
 @router.post("/generate", response_model=ChatResponse)
 def chat_with_ai(
