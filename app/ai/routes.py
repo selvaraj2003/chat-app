@@ -34,10 +34,12 @@ def chat_with_ai(
             settings["OLLAMA_BASE_URL"],
             json={
                 "model": payload.model or settings["DEFAULT_MODEL"],
-                "prompt": payload.prompt,
-                "stream": False,
+                "messages": [
+                    {"role": "user", "content": payload.prompt}
+                ],
+                "stream": False
             },
-            timeout=120
+            timeout=500
         )
 
         if response.status_code != 200:
@@ -47,7 +49,7 @@ def chat_with_ai(
             )
 
         data = response.json()
-        ai_response = data.get("response", "")
+        ai_response = data["message"]["content"]
 
         latency_ms = int((time.time() - start_time) * 1000)
 
@@ -59,8 +61,7 @@ def chat_with_ai(
             session_id=session_id,
             prompt=payload.prompt,
             response=ai_response,
-            model_name=payload.model or DEFAULT_MODEL,
-            temperature=payload.temperature or 0.7,
+            model_name=payload.model or settings["DEFAULT_MODEL"],
             tokens_used=data.get("eval_count"),
             latency_ms=latency_ms,
             is_success=True
@@ -86,7 +87,7 @@ def chat_with_ai(
             session_id=session_id,
             prompt=payload.prompt,
             response="",
-            model_name=payload.model or DEFAULT_MODEL,
+            model_name=payload.model or settings["DEFAULT_MODEL"],
             is_success=False,
             error_message=str(e)
         )
