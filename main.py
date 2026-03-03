@@ -4,9 +4,6 @@ from app.core.database import Base, engine
 from app.auth.routes import router as auth_router
 from app.ai.routes import router as ai_router
 
-
-# Create DB Tables
-# ⚠️ For production, use Alembic migrations instead
 Base.metadata.create_all(bind=engine)
 
 
@@ -21,6 +18,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:5173"
     ],
     allow_credentials=True,
     allow_methods=["*"],

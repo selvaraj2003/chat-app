@@ -27,9 +27,7 @@ def chat_with_ai(
     start_time = time.time()
 
     try:
-        # ==========================
         # Call Ollama
-        # ==========================
         response = requests.post(
             settings["OLLAMA_BASE_URL"],
             json={
@@ -53,9 +51,7 @@ def chat_with_ai(
 
         latency_ms = int((time.time() - start_time) * 1000)
 
-        # ==========================
         # Save Chat History
-        # ==========================
         chat = ChatHistory(
             user_id=current_user.id,
             session_id=session_id,
@@ -79,9 +75,7 @@ def chat_with_ai(
         )
 
     except Exception as e:
-        # ==========================
         # Save Failed Chat
-        # ==========================
         chat = ChatHistory(
             user_id=current_user.id,
             session_id=session_id,
