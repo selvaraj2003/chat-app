@@ -9,7 +9,7 @@ from app.models.user import User
 from app.models.chat import ChatHistory
 from app.ai.schemas import ChatRequest, ChatResponse
 from app.core.config import settings
-from app.ai.client import generate_ai, get_local_models, get_cloud_models
+from app.ai.client import ollama_call, cloud_call, get_local_models, get_cloud_models
 
 router = APIRouter(
     prefix="/api/ai",
@@ -17,30 +17,29 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)],
 )
 
+# GENERATE LOCAL CHAT
+@router.post("/generate/local", response_model=ChatResponse)
+def chat_with_local_ai(payload: ChatRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return generate_chat(payload, db, current_user, provider="local")
 
-# CREATE / GENERATE CHAT
-@router.post("/generate", response_model=ChatResponse)
-def chat_with_ai(
-    payload: ChatRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+# GENERATE CLOUD CHAT
+@router.post("/generate/cloud", response_model=ChatResponse)
+def chat_with_cloud_ai(payload: ChatRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return generate_chat(payload, db, current_user, provider="cloud")
+
+
+def generate_chat(payload: ChatRequest, db: Session, current_user: User, provider: str):
     session_id = payload.session_id or str(uuid.uuid4())
     start_time = time.time()
+    model_name = payload.model
 
     try:
-        ai_response, tokens_used = generate_ai(
-            payload.prompt,
-            payload.model,
-        )
+        if provider == "local":
+            ai_response, tokens_used = ollama_call(payload.prompt, model_name)
+        else:
+            ai_response, tokens_used = cloud_call(payload.prompt, model_name)
 
         latency_ms = int((time.time() - start_time) * 1000)
-
-        model_name = payload.model or (
-            settings["CLOUD_MODEL"]
-            if settings["AI_PROVIDER"] == "cloud"
-            else settings["DEFAULT_OLLAMA_MODEL"]
-        )
 
         chat = ChatHistory(
             user_id=current_user.id,
@@ -52,7 +51,6 @@ def chat_with_ai(
             latency_ms=latency_ms,
             is_success=True,
         )
-
         db.add(chat)
         db.commit()
         db.refresh(chat)
@@ -65,47 +63,26 @@ def chat_with_ai(
         )
 
     except Exception as e:
-        db.add(
-            ChatHistory(
-                user_id=current_user.id,
-                session_id=session_id,
-                prompt=payload.prompt,
-                response="",
-                model_name=payload.model,
-                is_success=False,
-                error_message=str(e),
-            )
-        )
+        db.add(ChatHistory(
+            user_id=current_user.id,
+            session_id=session_id,
+            prompt=payload.prompt,
+            response="",
+            model_name=model_name,
+            is_success=False,
+            error_message=str(e),
+        ))
         db.commit()
-
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="AI processing failed",
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="AI processing failed")
 
 
-# GET CHAT HISTORY (SESSION BASED)
+# GET CHAT HISTORY
 @router.get("/history")
-def get_chat_history(
-    session_id: str | None = None,
-    limit: int = 20,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    query = (
-        db.query(ChatHistory)
-        .filter(ChatHistory.user_id == current_user.id)
-    )
-
+def get_chat_history(session_id: str | None = None, limit: int = 20, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    query = db.query(ChatHistory).filter(ChatHistory.user_id == current_user.id)
     if session_id:
         query = query.filter(ChatHistory.session_id == session_id)
-
-    chats = (
-        query.order_by(ChatHistory.created_at.desc())
-        .limit(limit)
-        .all()
-    )
-
+    chats = query.order_by(ChatHistory.created_at.desc()).limit(limit).all()
     return [
         {
             "id": c.id,
@@ -119,28 +96,12 @@ def get_chat_history(
     ]
 
 
-# DELETE CHAT (FULL SESSION)
+# DELETE CHAT SESSION
 @router.delete("/history/{session_id}")
-def delete_chat(
-    session_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    deleted = (
-        db.query(ChatHistory)
-        .filter(
-            ChatHistory.session_id == session_id,
-            ChatHistory.user_id == current_user.id,
-        )
-        .delete()
-    )
-
+def delete_chat(session_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    deleted = db.query(ChatHistory).filter(ChatHistory.session_id == session_id, ChatHistory.user_id == current_user.id).delete()
     if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Chat not found",
-        )
-
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
     db.commit()
     return {"message": "Chat deleted successfully"}
 
@@ -155,12 +116,11 @@ def list_local_models():
     }
 
 
-
 # LIST CLOUD MODELS
 @router.get("/models/cloud")
 def list_cloud_models():
     return {
         "provider": "cloud",
-        "default": settings["CLOUD_MODEL"],
+        "default": settings["DEFAULT_CLOUD_MODEL"],
         "models": get_cloud_models(),
     }

@@ -33,7 +33,7 @@ settings = {
     "AI_PROVIDER" : os.environ["AI_PROVIDER"],
 
     "OLLAMA_BASE_URL": os.environ["OLLAMA_BASE_URL"],
-    "DEFAULT_OLLAMA_MODEL": os.environ["OLLAMA_MODEL"],
+    "DEFAULT_OLLAMA_MODEL": os.environ["DEFAULT_OLLAMA_MODEL"],
     "OLLAMA_TIMEOUT": int(os.environ["OLLAMA_TIMEOUT"]),
 
     "OLLAMA_GENERATE_URL": (
@@ -41,10 +41,9 @@ settings = {
     ),
     "CLOUD_API_BASE_URL" : os.environ["CLOUD_API_BASE_URL"],
     "CLOUD_API_KEY" : os.environ["CLOUD_API_KEY"],
-    "CLOUD_MODEL" : os.environ["CLOUD_MODEL"],
+    "DEFAULT_CLOUD_MODEL" : os.environ["DEFAULT_CLOUD_MODEL"],
     "CLOUD_TIMEOUT" : os.environ["CLOUD_TIMEOUT"],
 
-    "ALLOWED_ORIGINS": os.environ["ALLOWED_ORIGINS"].split(","),
     "LOG_LEVEL": os.environ["LOG_LEVEL"],
     
 }
