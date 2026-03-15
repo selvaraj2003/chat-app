@@ -6,39 +6,37 @@ from app.core.database import get_db
 from app.auth.jwt import decode_access_token
 from app.models.user import User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+_CREDENTIALS_EXCEPTION = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail="Invalid authentication credentials",
+    headers={"WWW-Authenticate": "Bearer"},
+)
 
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
-    """
-    Get currently authenticated user from JWT
-    """
+    """Resolve the currently authenticated user from the bearer JWT."""
     try:
         payload = decode_access_token(token)
         user_id: str | None = payload.get("sub")
-        if user_id is None:
-            raise ValueError()
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-        )
+        if not user_id:
+            raise ValueError("Missing subject claim")
+    except ValueError:
+        raise _CREDENTIALS_EXCEPTION
 
     user = db.query(User).filter(User.id == int(user_id)).first()
 
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-        )
+        raise _CREDENTIALS_EXCEPTION
 
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Inactive user",
+            detail="Account is disabled",
         )
 
     return user

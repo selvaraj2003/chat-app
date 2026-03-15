@@ -30,18 +30,10 @@ settings = {
         f"{os.environ['DB_PORT']}/"
         f"{os.environ['DB_NAME']}"
     ),
-    "AI_PROVIDER" : os.environ["AI_PROVIDER"],
 
-    "OLLAMA_BASE_URL": os.environ["OLLAMA_BASE_URL"],
-    "DEFAULT_OLLAMA_MODEL": os.environ["DEFAULT_OLLAMA_MODEL"],
-    "OLLAMA_TIMEOUT": int(os.environ["OLLAMA_TIMEOUT"]),
-
-    "OLLAMA_GENERATE_URL": (
-        f"{os.environ['OLLAMA_BASE_URL']}/api/generate"
-    ),
     "CLOUD_API_BASE_URL" : os.environ["CLOUD_API_BASE_URL"],
     "CLOUD_API_KEY" : os.environ["CLOUD_API_KEY"],
-    "DEFAULT_CLOUD_MODEL" : os.environ["DEFAULT_CLOUD_MODEL"],
+    "CLOUD_MODEL" : os.environ["CLOUD_MODEL"],
     "CLOUD_TIMEOUT" : os.environ["CLOUD_TIMEOUT"],
 
     "LOG_LEVEL": os.environ["LOG_LEVEL"],

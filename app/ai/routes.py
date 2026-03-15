@@ -9,7 +9,7 @@ from app.models.user import User
 from app.models.chat import ChatHistory
 from app.ai.schemas import ChatRequest, ChatResponse
 from app.core.config import settings
-from app.ai.client import ollama_call, cloud_call, get_local_models, get_cloud_models
+from app.ai.client import cloud_chat, get_cloud_models
 
 router = APIRouter(
     prefix="/api/ai",
@@ -17,27 +17,19 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)],
 )
 
-# GENERATE LOCAL CHAT
-@router.post("/generate/local", response_model=ChatResponse)
-def chat_with_local_ai(payload: ChatRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return generate_chat(payload, db, current_user, provider="local")
-
 # GENERATE CLOUD CHAT
 @router.post("/generate/cloud", response_model=ChatResponse)
 def chat_with_cloud_ai(payload: ChatRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return generate_chat(payload, db, current_user, provider="cloud")
+    return generate_chat(payload, db, current_user)
 
 
-def generate_chat(payload: ChatRequest, db: Session, current_user: User, provider: str):
+def generate_chat(payload: ChatRequest, db: Session, current_user: User):
     session_id = payload.session_id or str(uuid.uuid4())
     start_time = time.time()
     model_name = payload.model
 
     try:
-        if provider == "local":
-            ai_response, tokens_used = ollama_call(payload.prompt, model_name)
-        else:
-            ai_response, tokens_used = cloud_call(payload.prompt, model_name)
+        ai_response, tokens_used = cloud_chat(payload.prompt, model_name)
 
         latency_ms = int((time.time() - start_time) * 1000)
 
@@ -106,21 +98,11 @@ def delete_chat(session_id: str, db: Session = Depends(get_db), current_user: Us
     return {"message": "Chat deleted successfully"}
 
 
-# LIST LOCAL MODELS
-@router.get("/models/local")
-def list_local_models():
-    return {
-        "provider": "local",
-        "default": settings["DEFAULT_OLLAMA_MODEL"],
-        "models": get_local_models(),
-    }
-
-
 # LIST CLOUD MODELS
 @router.get("/models/cloud")
 def list_cloud_models():
     return {
         "provider": "cloud",
-        "default": settings["DEFAULT_CLOUD_MODEL"],
+        "default": settings["CLOUD_MODEL"],
         "models": get_cloud_models(),
     }
