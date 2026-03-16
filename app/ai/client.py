@@ -1,12 +1,8 @@
 import requests
 from fastapi import HTTPException, status
-
 from app.core.config import settings
 
-# DevOps System Prompt
-
-DEVOPS_SYSTEM_PROMPT = """You are an expert DevOps AI Assistant dedicated to helping \
-engineers with all aspects of modern DevOps and platform engineering. Your specialisations include:
+DEVOPS_SYSTEM_PROMPT = """You are an expert DevOps AI Assistant dedicated to helping engineers with all aspects of modern DevOps and platform engineering. Your specialisations include:
 
 - CI/CD pipelines (GitHub Actions, GitLab CI, Jenkins, CircleCI, ArgoCD)
 - Containerisation & orchestration (Docker, Kubernetes, Helm, Kustomize)
@@ -25,20 +21,10 @@ Guidelines:
 - When multiple approaches exist, briefly compare them and recommend the best fit.
 - If a question is outside DevOps scope, politely redirect the user."""
 
+def cloud_chat(messages, model: str | None = None) -> tuple[str, int]:
+    if isinstance(messages, str):
+        messages = [{"role": "user", "content": messages}]
 
-#  Cloud AI Client 
-
-def cloud_chat(
-    messages: list[dict],
-    model: str | None = None,
-) -> tuple[str, int]:
-    """
-    Send a conversation to the cloud AI endpoint and return (response_text, tokens_used).
-
-    ``messages`` should be a list of ``{"role": "user"|"assistant", "content": "..."}``
-    dicts representing the full conversation history up to and including the latest
-    user turn. The DevOps system prompt is prepended automatically.
-    """
     payload_messages = [
         {"role": "system", "content": DEVOPS_SYSTEM_PROMPT},
         *messages,
@@ -58,6 +44,7 @@ def cloud_chat(
             },
             timeout=int(settings['CLOUD_TIMEOUT']),
         )
+        response.raise_for_status()
 
     except requests.Timeout:
         raise HTTPException(
@@ -78,9 +65,7 @@ def cloud_chat(
         )
 
     try:
-        print("Raw response from AI service:", response.json())  # Debug log
         data = response.json()
-        print("Received response from AI service:", data)  # Debug log
         content: str = data["message"]["content"]
         tokens: int = data.get("eval_count", 0)
         return content, tokens
@@ -91,9 +76,7 @@ def cloud_chat(
             detail="Received an unrecognised response format from the AI service.",
         )
 
-
 def get_cloud_models() -> list[str]:
-    """Return the list of model names available on the cloud endpoint."""
     try:
         response = requests.get(
             f"{settings['CLOUD_API_BASE_URL']}/api/tags",
