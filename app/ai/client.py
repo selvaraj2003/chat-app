@@ -21,9 +21,33 @@ Guidelines:
 - When multiple approaches exist, briefly compare them and recommend the best fit.
 - If a question is outside DevOps scope, politely redirect the user."""
 
-def cloud_chat(messages, model: str | None = None) -> tuple[str, int]:
+# VISION_MODELS = ["gpt-4o", "gpt-4o-mini", "llava", "vision-model"]
+
+def cloud_chat(messages, model: str | None = None, image_base64: str | None = None) -> tuple[str, int]:
     if isinstance(messages, str):
         messages = [{"role": "user", "content": messages}]
+
+    model_name = model or settings['CLOUD_MODEL']
+
+    if image_base64:
+        # if model_name not in VISION_MODELS:
+        #     raise HTTPException(
+        #         status_code=400,
+        #         detail=f"Model '{model_name}' does not support image input"
+        #     )
+
+        messages = [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": messages[0]["content"]},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{image_base64}"
+                    }
+                }
+            ]
+        }]
 
     payload_messages = [
         {"role": "system", "content": DEVOPS_SYSTEM_PROMPT},
@@ -38,7 +62,7 @@ def cloud_chat(messages, model: str | None = None) -> tuple[str, int]:
                 "Content-Type": "application/json",
             },
             json={
-                "model": model or settings['CLOUD_MODEL'],
+                "model": model_name,
                 "messages": payload_messages,
                 "stream": False,
             },
@@ -47,22 +71,13 @@ def cloud_chat(messages, model: str | None = None) -> tuple[str, int]:
         response.raise_for_status()
 
     except requests.Timeout:
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="The AI service did not respond in time. Please try again.",
-        )
+        raise HTTPException(504, "AI timeout")
 
     except requests.ConnectionError:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Unable to connect to the AI service.",
-        )
+        raise HTTPException(503, "AI connection failed")
 
     except requests.HTTPError:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="The AI service returned an unexpected error.",
-        )
+        raise HTTPException(502, "AI service error")
 
     try:
         data = response.json()
@@ -71,11 +86,8 @@ def cloud_chat(messages, model: str | None = None) -> tuple[str, int]:
         return content, tokens
 
     except (KeyError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Received an unrecognised response format from the AI service.",
-        )
-
+        raise HTTPException(500, "Invalid AI response format")
+    
 def get_cloud_models() -> list[str]:
     try:
         response = requests.get(
